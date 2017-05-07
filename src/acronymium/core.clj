@@ -4,158 +4,135 @@
             [clojure.math.combinatorics :as c]
             [clojure.string :as str]))
 
-(def alphabet #{\A \B \C \D \E
-                \F \G \H \I \J
-                \K \L \M \N \O
-                \P \Q \R \S \T
-                \U \V \W \X \Y \Z})
+(comment
+  (def merge-with-+ (partial merge-with +))
+  (defn add-rule [rule-set required words]
+    (let [words   (map str/capitalize words)
+          letters (map first words)
+          fname   (keyword (str (name required) "-frequencies"))]
+      (as-> rule-set $
+            (update $ :rules assoc (char (+ (count (:rules $)) 65)) words)
+            (update $ required conj words)
+            (update $ fname merge-with-+ (frequencies letters))
+            (update $ :legal (fn [legal]
+                               (reduce conj legal letters)))))))
 
+(defrecord Rule [required letters])
 
-;; The word-classes represent a series of word categories containing words that can be used to
-;; describe the category, ordered from most to least desirable. A word category has the form
-;;
-;; [category word-list must-or-optional]
-;;
-;; The category is purely description
-;; The word-list is a series of words, ordered from most to least desirable, used to represent the category
-;; The must-or-optional determines whether a word from the category must be represented
+(defrecord Letter [alpha word])
 
-(def word-classes [[:strategy ["Strategy" "Plan"] :must]
-                   [:purpose ["Purpose" "Vision"] :must]
-                   [:perspective ["Perspective"] :optional]
-                   [:goals ["Goals" "Ambition" "Objective"] :must]
-                   [:service ["Passion" "Service"] :optional]
-                   [:pain ["Customers" "Audience" "Needs"] :must]
-                   [:return ["Return" "Profit"] :optional]
-                   [:value ["Value" "Proposition"] :must]
-                   [:tech ["Technology" "Digital"] :optional]
-                   [:innovation ["Innovation" "Design"] :optional]
-                   [:execution ["Delivery" "Execution" "Operations" "Process"] :must]])
+(defn make-letter [word]
+  (let [word (str/capitalize word)]
+    (Letter. (first word) word)))
 
-(defn equivalent-words [word-classes word]
-  (let [pred (fn [[_ words _]] (some #(= word %) words))]
-    (->> word-classes
-         (filter pred)
-         (first)
-         (second))))
+(defn new-rules [] {})
 
-(defn word-tree [word-classes]
-  (reduce (fn [tree [_ words must-or-optional]]
-            (reduce (fn [tree word]
-                      (let [letter (first word)]
-                        (update-in tree [must-or-optional letter] (fnil conj []) word))
-                      ) tree (map str/capitalize words))) {} word-classes))
+(defn add-rule [rules required words]
+  (let [words      (map str/capitalize words)
+        letters    (map make-letter words)
+        rule-count (count rules)
+        label      (char (+ 65 rule-count))                 ; 65 ASCII 'A'
+        rule       (Rule. required letters)
+        ]
+    (assoc rules label rule)))
 
+(defn must-have-one-of [rule-set words]
+  (add-rule rule-set :required words))
 
-(defn legal-letters [word-classes]
-  (->> word-classes
-       (map second)
-       (flatten)
-       (map s/upper-case)
-       (map first)
-       (distinct)
-       (set)))
+(defn can-have-one-of [rule-set words]
+  (add-rule rule-set :optional words))
 
-(defn illegal-letters [word-classes]
-  (set/difference alphabet (legal-letters word-classes)))
+(defn rule-has-letter? [rule letter]
+  (some #(= letter (:alpha %)) (:letters rule)))
 
-(defn illegal-letter-filter-fn [word-classes]
-  (let [illegals (illegal-letters word-classes)]
-    (fn [word]
-      (not-empty (set/intersection (set word) illegals)))))
+(defn letter->matching-rules [rules letter]
+  "Given rules and an uppercase letter return a vector containing the label for
+  each rule that could match that letter.
+  (letter->matching-rules S) => [A]"
+  (->> rules
+       (filter (fn [[label rule]] (rule-has-letter? rule letter)))
+       (mapv first)))
 
-(defn create-letter-sets [word-classes must-value]
-  (let [must-pred    (fn [[_ _ must-or-optional]]
-                       (= must-value must-or-optional))
-        must-reducer (fn [coll [_ words _]]
-                       (conj coll (set (map (comp first s/upper-case) words))))]
-    (->> word-classes
-         (filter must-pred)
-         (reduce must-reducer #{}))))
+(defn letters->rules [rules letters]
+  "Given rules and a seq of uppercase letters return a vector of mappings where
+  each mapping is a vector composed of a letter and a vector of all labels of
+  rules that can match the letter.
+  (letters->rules rules [S P A C E]) => [[S [...]] [P [...]] ...]"
+  (mapv (fn [letter]
+          [letter (letter->matching-rules rules letter)]) letters))
 
-(def must-sets (create-letter-sets word-classes :must))
-(def optional-sets (create-letter-sets word-classes :optional))
+(defn word->labellings [rules word]
+  "Given rules and a word return a vector of mappings where each mapping is
+  composed of a vector composed of a letter and a vector of all labels of rules
+  that can match that letter.
+  (word->labellings rules 'space') => [[S [...]] [P [...]] ...]"
+  (let [letters    (-> word
+                       (str/upper-case)
+                       (seq))
+        labellings (letters->rules rules letters)]
+    labellings))
 
-(def all-must-sets (apply c/cartesian-product must-sets))
+(defn has-no-solution? [labelling]
+  "Returns true if an attempt at labelling returns a letter for which no rules
+  are able to match the letter."
+  (some empty? (map second labelling)))
 
-(def min-word-len (count must-sets))
-(def max-word-len (+ min-word-len (count optional-sets)))
+(defn permute-solutions [sol]
+  (loop [results []
+         current (first sol)
+         tail    (rest sol)]
+    (if (nil? current)
+      results
+      (if (empty? results)
+        (recur [current] (first tail) (rest tail))
+        (recur (for [r results
+                     s current]
+                 (conj r s)) (first tail) (rest tail))))))
 
-(println (str "Words can vary between " min-word-len " and " max-word-len " characters."))
+(defn invalid-labelling? [labelling]
+  "Given a labelling such as [[S A] [P D] [A B] [C D] [E E]] return false
+  as it uses rule D twice twice (for letter P and C)"
+  (not= (count labelling) (count (distinct (map second labelling)))))
 
-(defn same-letter-frequency? [letter-frequencies template-frequencies]
-  (every? (fn [[letter freq]]
-            (= freq (get letter-frequencies letter))) template-frequencies))
+(defn solutions [rules word]
+  "Return all valid solutions for combining rules to form the given word."
+  (let [labellings (word->labellings rules word)]
+    (if (has-no-solution? labellings)
+      []
+      (->> labellings
+           (mapv (fn [[letter rules]]                       ; e.g. letter:\S rules:[\A \B \D]
+                   (mapv (fn [a b]
+                           [a b]) (repeat letter) rules)))
+           (permute-solutions)
+           (remove invalid-labelling?)))))
 
-(defn has-required-letters-fn [word-classes]
-  (let [required-letters-freq-maps (->> (create-letter-sets word-classes :must)
-                                        (apply c/cartesian-product)
-                                        (map frequencies))]
-    (fn [word]
-      (let [letter-frequencies (frequencies word)]
-        (some (fn [template-frequencies]
-                (same-letter-frequency? letter-frequencies template-frequencies)) required-letters-freq-maps)))))
+(defn letter->rule-word [rule letter]
+  (->> (:letters rule)
+       (filter #(= letter (:alpha %)))
+       (first)
+       (:word)))
+
+(defn acronym [rules solution]
+  (mapv (fn [[letter label]]
+          (let [rule (get rules label)]
+            (letter->rule-word rule letter))) solution))
+
+(defn acroynms [rules word]
+  "Given a word return all legal acronyms that can be formed for that word."
+  (map (partial acronym rules) (solutions rules word)))
+
+(def legal-char-pred (partial re-matches #"\w+"))
 
 (defn load-dict [dict-file]
-  (let [required-letters-pred (has-required-letters-fn word-classes)
-        illegal-letters-pred  (illegal-letter-filter-fn word-classes)]
+  (let [#_required-letters-pred #_(has-required-letters-fn word-classes)
+        #_illegal-letters-pred  #_(illegal-letter-filter-fn word-classes)]
     (->> dict-file
-         (slurp)                                            ; read the dictionary
-         (s/split-lines)                                    ; a word per-line
+         (slurp)                                          ; read the dictionary
+         (s/split-lines)                                  ; a word per-line
          (map s/upper-case)
-         (filter #(>= (count %) min-word-len))              ; only words longer than
-         (filter #(<= (count %) max-word-len))              ; only words shorter than
-         (remove illegal-letters-pred)                      ; none with illegal letters
-         (filter required-letters-pred))))                  ; pass with correct legal required legal letter
-
-(def dict (load-dict "/usr/share/dict/words"))
-
-(defn group-by-length [dict]
-  (reduce (fn [coll word]
-            (update coll (count word) conj word)) {} dict))
-
-(def dict (-> (load-dict "/usr/share/dict/words")
-              (group-by-length)))
-
-(def root-tree (word-tree word-classes))
-
-(defn print-args [& args]
-  (doseq [[n arg] (partition 2 (interleave (range) args))]
-    (println (str n "> " arg))))
-
-(defn word-is-pred [target-word]
-  (fn [w]
-    (= w target-word)))
-
-(defn remove-2 [s p]
-  (remove p s))
-
-(defn tree-without-class [tree must-or-optional letter class-word]
-  (let [words-to-remove (equivalent-words word-classes class-word)]
-    (reduce (fn [tree word]
-              (let [pred   (word-is-pred word)
-                    letter (first word)]
-                (update-in tree [must-or-optional letter] remove-2 pred))) tree words-to-remove)))
-
-
-(defn word-of-length [dict length]
-  (let [word (rand-nth (get dict length))]
-    (loop [letters word
-           acronym []
-           tree    root-tree]
-      (if (empty? letters)
-        [word acronym]
-        (let [letter (first letters)]
-          (if-let [choice (first (get-in tree [:must letter]))]
-            (recur (rest letters) (conj acronym choice) (tree-without-class tree :must letter choice))
-            (if-let [choice (first (get-in tree [:optional letter]))]
-              (recur (rest letters) (conj acronym choice) (tree-without-class tree :optional letter choice))
-              (recur [] [] nil))))))))
-
-(defn no-acronym [[word acronym]]
-  (empty? acronym))
-
-(defn words-of-length [dict length]
-  (distinct (remove no-acronym (lazy-seq (cons (word-of-length dict length) (words-of-length dict length))))))
-
+         (filter legal-char-pred)
+         #_(filter #(>= (count %) min-word-len))            ; only words longer than
+         #_(filter #(<= (count %) max-word-len))            ; only words shorter than
+         #_(remove illegal-letters-pred)                    ; none with illegal letters
+         #_(filter required-letters-pred))))
 
