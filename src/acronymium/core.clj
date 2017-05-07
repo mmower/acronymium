@@ -83,17 +83,12 @@
   are able to match the letter."
   (some empty? (map second labelling)))
 
-(defn permute-solutions [sol]
-  (loop [results []
-         current (first sol)
-         tail    (rest sol)]
-    (if (nil? current)
-      results
-      (if (empty? results)
-        (recur [current] (first tail) (rest tail))
-        (recur (for [r results
-                     s current]
-                 (conj r s)) (first tail) (rest tail))))))
+
+(defn permute-labellings [[letter labels]]
+  (partition 2 (interleave (repeat letter) labels)))
+
+(defn permute-solutions [labellings]
+  (apply c/cartesian-product (map permute-labellings labellings)))
 
 (defn label-used-more-than-once? [labels]
   (some #(> % 1) (vals (frequencies labels))))
@@ -110,18 +105,17 @@
     (or (label-used-more-than-once? labels)
         (required-label-missing? rules labels))))
 
-(defn solutions [rules word]
-  "Return all valid solutions for combining rules to form the given word."
-  (let [labellings (word->labellings rules word)
-        ]
+(defn candidate-solutions [rules word]
+  (let [labellings (word->labellings rules word)]
     (if (has-no-solution? labellings)
       []
       (->> labellings
-           (mapv (fn [[letter rules]]                       ; e.g. letter:\S rules:[\A \B \D]
-                   (mapv (fn [a b]
-                           [a b]) (repeat letter) rules)))
-           (permute-solutions)
-           (remove (partial invalid-labelling? rules))))))
+           (permute-solutions)))))
+
+(defn solutions [rules word]
+  "Return all valid solutions for combining rules to form the given word."
+  (->> (candidate-solutions rules word)
+       (remove (partial invalid-labelling? rules))))
 
 (defn letter->rule-word [rule letter]
   (->> (:letters rule)
@@ -134,7 +128,7 @@
           (let [rule (get rules label)]
             (letter->rule-word rule letter))) solution))
 
-(defn acroynms [rules word]
+(defn acronyms [rules word]
   "Given a word return all legal acronyms that can be formed for that word."
   (map (partial acronym rules) (solutions rules word)))
 
@@ -144,8 +138,8 @@
   (let [#_required-letters-pred #_(has-required-letters-fn word-classes)
         #_illegal-letters-pred  #_(illegal-letter-filter-fn word-classes)]
     (->> dict-file
-         (slurp)                                          ; read the dictionary
-         (s/split-lines)                                  ; a word per-line
+         (slurp)                                            ; read the dictionary
+         (s/split-lines)                                    ; a word per-line
          (map s/upper-case)
          (filter legal-char-pred)
          #_(filter #(>= (count %) min-word-len))            ; only words longer than

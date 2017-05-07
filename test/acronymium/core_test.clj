@@ -14,7 +14,6 @@
                     (can-have-one-of ["Perspective"])
                     (can-have-one-of ["Technology" "Digital"])))
 
-
 ; Some assumptions
 (expect [\S \t \r \i \n \g] (seq "String"))
 
@@ -66,7 +65,7 @@
 (expect ["Strategy" "Purpose" "Ambition" "Customer" "Execution"]
         (acronym base-rules [[\S \A] [\P \C] [\A \B] [\C \D] [\E \E]]))
 
-(expect [["Strategy" "Purpose" "Ambition" "Customer" "Execution"]] (acroynms base-rules "space"))
+(expect [["Strategy" "Purpose" "Ambition" "Customer" "Execution"]] (acronyms base-rules "space"))
 
 (let [dict (load-dict (io/resource "wordlist_60k.csv"))]
   (expect 6900 (count dict)))
