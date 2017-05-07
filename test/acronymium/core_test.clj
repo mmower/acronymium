@@ -67,6 +67,4 @@
 
 (expect [["Strategy" "Purpose" "Ambition" "Customer" "Execution"]] (acronyms base-rules "space"))
 
-(let [dict (load-dict (io/resource "wordlist_60k.csv"))]
-  (expect 6900 (count dict)))
 
