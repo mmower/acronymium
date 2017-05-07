@@ -135,15 +135,18 @@
 (def legal-char-pred (partial re-matches #"\w+"))
 
 (defn load-dict [dict-file]
-  (let [#_required-letters-pred #_(has-required-letters-fn word-classes)
-        #_illegal-letters-pred  #_(illegal-letter-filter-fn word-classes)]
+  (let []
     (->> dict-file
          (slurp)                                            ; read the dictionary
          (s/split-lines)                                    ; a word per-line
          (map s/upper-case)
-         (filter legal-char-pred)
-         #_(filter #(>= (count %) min-word-len))            ; only words longer than
-         #_(filter #(<= (count %) max-word-len))            ; only words shorter than
-         #_(remove illegal-letters-pred)                    ; none with illegal letters
-         #_(filter required-letters-pred))))
+         (filter legal-char-pred))))
 
+(defn acro-dict [rules word-list]
+  (->> word-list
+       (map (fn [word]
+              [word (acronyms rules word)]))
+       (filter (fn [[word list]]
+                 (> (count list) 0)))
+       (reduce (fn [coll [word acros]]
+                 (assoc coll word acros)) {})))
