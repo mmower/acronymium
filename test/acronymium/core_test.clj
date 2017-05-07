@@ -22,6 +22,8 @@
 
 (expect {} (new-rules))
 
+(expect [\A \B \C \D \E] (required-rules base-rules))
+
 (let [rules (-> (new-rules)
                 (must-have-one-of ["Strategy" "Plan"]))]
   (expect {\A (Rule. :required [(Letter. \S "Strategy") (Letter. \P "Plan")])} rules))
@@ -55,9 +57,8 @@
 ; Find all possible solutions for labelling the word
 
 (let [solutions (solutions base-rules "space")]
-  (expect 2 (count solutions))
-  (expect [[\S \A] [\P \C] [\A \B] [\C \D] [\E \E]] (first solutions))
-  (expect [[\S \A] [\P \F] [\A \B] [\C \D] [\E \E]] (second solutions)))
+  (expect 1 (count solutions))
+  (expect [[\S \A] [\P \C] [\A \B] [\C \D] [\E \E]] (first solutions)))
 
 (let [solutions (solutions base-rules "string")]
   (expect 0 (count solutions)))
@@ -65,8 +66,7 @@
 (expect ["Strategy" "Purpose" "Ambition" "Customer" "Execution"]
         (acronym base-rules [[\S \A] [\P \C] [\A \B] [\C \D] [\E \E]]))
 
-(expect [["Strategy" "Purpose" "Ambition" "Customer" "Execution"]
-         ["Strategy" "Perspective" "Ambition" "Customer" "Execution"]] (acroynms base-rules "space"))
+(expect [["Strategy" "Purpose" "Ambition" "Customer" "Execution"]] (acroynms base-rules "space"))
 
 (let [dict (load-dict (io/resource "wordlist_60k.csv"))]
   (expect 6900 (count dict)))

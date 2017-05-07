@@ -42,6 +42,12 @@
 (defn can-have-one-of [rule-set words]
   (add-rule rule-set :optional words))
 
+(defn required-rules [rule-set]
+  (->> rule-set
+       (filter (fn [[label rule]]
+                 (= :required (:required rule))))
+       (map first)))
+
 (defn rule-has-letter? [rule letter]
   (some #(= letter (:alpha %)) (:letters rule)))
 
@@ -89,14 +95,25 @@
                      s current]
                  (conj r s)) (first tail) (rest tail))))))
 
-(defn invalid-labelling? [labelling]
+(defn label-used-more-than-once? [labels]
+  (some #(> % 1) (vals (frequencies labels))))
+
+(defn required-label-missing? [rules labels]
+  (let [rs (set (required-rules rules))
+        ls (set labels)]
+    (not (set/subset? rs ls))))
+
+(defn invalid-labelling? [rules labelling]
   "Given a labelling such as [[S A] [P D] [A B] [C D] [E E]] return false
   as it uses rule D twice twice (for letter P and C)"
-  (not= (count labelling) (count (distinct (map second labelling)))))
+  (let [labels (map second labelling)]
+    (or (label-used-more-than-once? labels)
+        (required-label-missing? rules labels))))
 
 (defn solutions [rules word]
   "Return all valid solutions for combining rules to form the given word."
-  (let [labellings (word->labellings rules word)]
+  (let [labellings (word->labellings rules word)
+        ]
     (if (has-no-solution? labellings)
       []
       (->> labellings
@@ -104,7 +121,7 @@
                    (mapv (fn [a b]
                            [a b]) (repeat letter) rules)))
            (permute-solutions)
-           (remove invalid-labelling?)))))
+           (remove (partial invalid-labelling? rules))))))
 
 (defn letter->rule-word [rule letter]
   (->> (:letters rule)
