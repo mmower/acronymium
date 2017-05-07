@@ -25,20 +25,20 @@
 
 (let [rules (-> (new-rules)
                 (must-have-one-of ["Strategy" "Plan"]))]
-  (expect {\A (Rule. :required [(Letter. \S "Strategy") (Letter. \P "Plan")])} rules))
+  (expect {\A (Rule. :required {\S "Strategy" \P "Plan"})} rules))
 
 (let [rules (-> (new-rules)
                 (can-have-one-of ["Technology" "Digital"]))]
-  (expect {\A (Rule. :optional [(Letter. \T "Technology") (Letter. \D "Digital")])} rules))
+  (expect {\A (Rule. :optional {\T "Technology" \D "Digital"})} rules))
 
-(let [rule (Rule. :required [(Letter. \S "Strategy") (Letter. \P "Plan")])]
+(let [rule (Rule. :required {\S "Strategy" \P "Plan"})]
   (expect (rule-has-letter? rule \S))
   (expect (rule-has-letter? rule \P))
   (expect (not (rule-has-letter? rule \A))                  ; and all the others we assume
           ))
 
 
-(let [rule (Rule. :required [(Letter. \S "Strategy") (Letter. \P "Plan")])]
+(let [rule (Rule. :required {\S "Strategy" \P "Plan"})]
   (expect "Strategy" (letter->rule-word rule \S)))
 
 ; Convert letters to rules, where there is no rule that can match a letter we expect

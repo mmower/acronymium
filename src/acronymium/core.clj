@@ -4,32 +4,17 @@
             [clojure.math.combinatorics :as c]
             [clojure.string :as str]))
 
-(comment
-  (def merge-with-+ (partial merge-with +))
-  (defn add-rule [rule-set required words]
-    (let [words   (map str/capitalize words)
-          letters (map first words)
-          fname   (keyword (str (name required) "-frequencies"))]
-      (as-> rule-set $
-            (update $ :rules assoc (char (+ (count (:rules $)) 65)) words)
-            (update $ required conj words)
-            (update $ fname merge-with-+ (frequencies letters))
-            (update $ :legal (fn [legal]
-                               (reduce conj legal letters)))))))
-
 (defrecord Rule [required letters])
 
-(defrecord Letter [alpha word])
-
-(defn make-letter [word]
-  (let [word (str/capitalize word)]
-    (Letter. (first word) word)))
+(defn letter-map [words]
+  (reduce (fn [coll w]
+            (assoc coll (first w) w)) {} words))
 
 (defn new-rules [] {})
 
 (defn add-rule [rules required words]
   (let [words      (map str/capitalize words)
-        letters    (map make-letter words)
+        letters    (letter-map words)
         rule-count (count rules)
         label      (char (+ 65 rule-count))                 ; 65 ASCII 'A'
         rule       (Rule. required letters)
@@ -49,7 +34,7 @@
        (map first)))
 
 (defn rule-has-letter? [rule letter]
-  (some #(= letter (:alpha %)) (:letters rule)))
+  (some #(= letter %) (keys (get rule :letters))))
 
 (defn letter->matching-rules [rules letter]
   "Given rules and an uppercase letter return a vector containing the label for
@@ -118,10 +103,7 @@
        (remove (partial invalid-labelling? rules))))
 
 (defn letter->rule-word [rule letter]
-  (->> (:letters rule)
-       (filter #(= letter (:alpha %)))
-       (first)
-       (:word)))
+  (get-in rule [:letters letter]))
 
 (defn acronym [rules solution]
   (mapv (fn [[letter label]]
