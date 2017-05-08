@@ -2,7 +2,8 @@
   (:require [clojure.set :as set]
             [clojure.string :as s]
             [clojure.math.combinatorics :as c]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            ))
 
 (defrecord Rule [required letters])
 
@@ -10,47 +11,48 @@
   (reduce (fn [coll w]
             (assoc coll (first w) w)) {} words))
 
-(defn new-rules [] {})
+(defn new-ruleset [] {:rules           {}
+                      :required-labels []})
 
-(defn add-rule [rules required words]
+(defn add-rule [ruleset required words]
   (let [words      (map str/capitalize words)
         letters    (letter-map words)
-        rule-count (count rules)
+        rule-count (count (get ruleset :rules))
         label      (char (+ 65 rule-count))                 ; 65 ASCII 'A'
-        rule       (Rule. required letters)
-        ]
-    (assoc rules label rule)))
+        rule       (Rule. required letters)]
+    (if (= :required required)
+      (-> ruleset
+          (assoc-in [:rules label] rule)
+          (update :required-labels conj label))
+      (assoc-in ruleset [:rules label] rule))))
 
-(defn must-have-one-of [rule-set words]
-  (add-rule rule-set :required words))
+(defn must-have-one-of [ruleset words]
+  (add-rule ruleset :required words))
 
-(defn can-have-one-of [rule-set words]
-  (add-rule rule-set :optional words))
+(defn can-have-one-of [ruleset words]
+  (add-rule ruleset :optional words))
 
-(defn required-rules [rule-set]
-  (->> rule-set
-       (filter (fn [[label rule]]
-                 (= :required (:required rule))))
-       (map first)))
+(defn required-rules [ruleset]
+  (:required-labels ruleset))
 
 (defn rule-has-letter? [rule letter]
   (some #(= letter %) (keys (get rule :letters))))
 
-(defn letter->matching-rules [rules letter]
+(defn letter->matching-rules [ruleset letter]
   "Given rules and an uppercase letter return a vector containing the label for
   each rule that could match that letter.
   (letter->matching-rules S) => [A]"
-  (->> rules
+  (->> (:rules ruleset)
        (filter (fn [[label rule]] (rule-has-letter? rule letter)))
        (mapv first)))
 
-(defn letters->rules [rules letters]
+(defn letters->rules [ruleset letters]
   "Given rules and a seq of uppercase letters return a vector of mappings where
   each mapping is a vector composed of a letter and a vector of all labels of
   rules that can match the letter.
   (letters->rules rules [S P A C E]) => [[S [...]] [P [...]] ...]"
   (mapv (fn [letter]
-          [letter (letter->matching-rules rules letter)]) letters))
+          [letter (letter->matching-rules ruleset letter)]) letters))
 
 (defn word->labellings [rules word]
   "Given rules and a word return a vector of mappings where each mapping is
@@ -67,7 +69,6 @@
   "Returns true if an attempt at labelling returns a letter for which no rules
   are able to match the letter."
   (some empty? (map second labelling)))
-
 
 (defn permute-labellings [[letter labels]]
   (partition 2 (interleave (repeat letter) labels)))
@@ -105,9 +106,9 @@
 (defn letter->rule-word [rule letter]
   (get-in rule [:letters letter]))
 
-(defn acronym [rules solution]
+(defn acronym [ruleset solution]
   (mapv (fn [[letter label]]
-          (let [rule (get rules label)]
+          (let [rule (get-in ruleset [:rules label])]
             (letter->rule-word rule letter))) solution))
 
 (defn acronyms [rules word]

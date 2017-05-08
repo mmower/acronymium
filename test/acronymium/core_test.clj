@@ -3,9 +3,9 @@
     [acronymium.core :refer :all]
     [expectations :refer :all]
     [clojure.java.io :as io])
-  (:import (acronymium.core Rule Letter)))
+  (:import (acronymium.core Rule)))
 
-(def base-rules (-> (new-rules)
+(def base-rules (-> (new-ruleset)
                     (must-have-one-of ["strategy" "Plan"])
                     (must-have-one-of ["goals" "ambition" "objectives"])
                     (must-have-one-of ["Purpose" "Vision"])
@@ -19,17 +19,17 @@
 
 ; About rules
 
-(expect {} (new-rules))
+(expect {:rules {} :required-labels []} (new-ruleset))
 
 (expect [\A \B \C \D \E] (required-rules base-rules))
 
-(let [rules (-> (new-rules)
-                (must-have-one-of ["Strategy" "Plan"]))]
-  (expect {\A (Rule. :required {\S "Strategy" \P "Plan"})} rules))
+(let [ruleset (-> (new-ruleset)
+                  (must-have-one-of ["Strategy" "Plan"]))]
+  (expect {\A (Rule. :required {\S "Strategy" \P "Plan"})} (:rules ruleset)))
 
-(let [rules (-> (new-rules)
-                (can-have-one-of ["Technology" "Digital"]))]
-  (expect {\A (Rule. :optional {\T "Technology" \D "Digital"})} rules))
+(let [ruleset (-> (new-ruleset)
+                  (can-have-one-of ["Technology" "Digital"]))]
+  (expect {\A (Rule. :optional {\T "Technology" \D "Digital"})} (:rules ruleset)))
 
 (let [rule (Rule. :required {\S "Strategy" \P "Plan"})]
   (expect (rule-has-letter? rule \S))
@@ -54,6 +54,8 @@
 (expect (not (has-no-solution? (word->labellings base-rules "space"))))
 
 ; Find all possible solutions for labelling the word
+
+(expect 5 (count (candidate-solutions base-rules "space")))
 
 (let [solutions (solutions base-rules "space")]
   (expect 1 (count solutions))
