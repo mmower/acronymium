@@ -3,11 +3,11 @@
             [instaparse.core :as insta]))
 
 (def parser (insta/parser
-              "<S> = R+
-               R = O W
-               <O> = ('+'|'*') <#'\\s*'>
-               <W> = (A <#'\\s*'>)+
-               <A> = #'\\w+'"))
+              "<ruleset> = rule+
+               rule = oper words
+               <oper> = ('+'|'*') <#'\\s*'>
+               <words> = (word <#'\\s*'>)+
+               <word> = #'\\w+'"))
 
 (def op-mapping {"+" :required
                  "*" :optional})
