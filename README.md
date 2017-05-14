@@ -1,13 +1,38 @@
 # Acronymium
 
-A Clojure program that can generate acronyms according to a set of rules specifying the words
- to use in different categories and whether a category is required or optional.
+A Clojure program for generating acronyms.
+
+In particular what Acronymium does is allow you to specify rules that determine the
+way specified words can be combined to form an acronym. For example if you want the
+word _Ham_ to be part of the acronym you can do that.
+
+The principle use is to specify a set of categories. A category is a rule and a set of
+words (that are, in principle, interchangeable) one of which should appear in the
+final acronym.
+ 
+The main use is to create categories that define the "shape" of the acronyms you want
+and then fire the dictionary through them. This will result in familiar words that
+are defined in terms of words you want to use.
 
 ## Usage
 
-Take a look at core-test.
+Take a look at `core-test` and `parser-test`.
 
-Load in a REPL, define some rules using the parser.
+Load in a REPL, define some word categories using the parser. A category is defined
+by a rule `+` or `*` followed by one or more words. You can have as many categories as you
+like.
+
+The rule `+` means _must have one of_ while `*` means _can
+have one of_, so `+Ham Bacon Sausage` means the resulting acronym must contain
+either an _H_, _B_, or _S_ and where that letter appears the corresponding
+word will be used. While `*Eggs` means the word can optionally have an _E_ if it
+needs one.
+
+So `+` defines constraints while `*` creates the opportunity to use other
+letters which makes a wider range of words open to being turned into acronyms.
+
+Acronyms will, by definition, have a minimum length the same as the number of
+`+` categories since one letter/word from each must appear.
 
     (require '[acronymium.core :refer [acronyms]]
               [acronymium.parser :refer [parse-ruleset]])
@@ -68,6 +93,11 @@ a meaningful acronym.
      "TETH" (["Tomatoes" "Eggs" "Tea" "Ham"] ["Tea" "Eggs" "Tomatoes" "Ham"]),
      "MES" (["Mushrooms" "Eggs" "Sausage"]),
      "THEW" (["Tomatoes" "Ham" "Eggs" "Waffles"])}
+
+## Notes
+
+The parser was built using the fabulous [Instaparse](https://github.com/Engelberg/instaparse)
+by Mark Engelberg. Tests use [expectations](https://github.com/clojure-expectations/expectations).
 
 ## License
 

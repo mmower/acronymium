@@ -24,4 +24,6 @@
         rules     (map translate tree)]
     (reduce add-rule (acro/new-ruleset) rules)))
 
+(defn parse-rules-file [file]
+  (parse-ruleset (slurp file)))
 
